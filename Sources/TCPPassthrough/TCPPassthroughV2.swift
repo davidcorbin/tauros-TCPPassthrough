@@ -136,7 +136,7 @@ public class TCPPassthroughV2 {
     
     private func connectToRobotAsync() {
         self.connectionDispatchGroup.enter()
-        self.dispatchQueue.sync {
+        self.dispatchQueue.async {
             // While not connected, connect to robot
             while self.robotSocketConn == nil || !self.robotSocketConn!.isConnected {
                 let socketVal = self.connectToTaurosRobotInterfaceSync()
