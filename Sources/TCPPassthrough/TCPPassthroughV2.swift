@@ -223,10 +223,10 @@ public class TCPPassthroughV2 {
         do {
             let taurosCloudConn = try Socket.create(family: .inet)
             try taurosCloudConn.connect(to: "127.0.0.1", port: Int32(listeningPort))
-            os_log("Connected to: %s:%i", type: .info, taurosCloudConn.remoteHostname, taurosCloudConn.remotePort)
+            os_log("Connected to: %s:%i as Cloud Connection", type: .info, taurosCloudConn.remoteHostname, taurosCloudConn.remotePort)
             return taurosCloudConn
         } catch {
-            os_log("Socket error: %s", type: .error, error.localizedDescription)
+            os_log("Socket error when connecting to Cloud Connection: %s", type: .error, error.localizedDescription)
             return nil
         }
     }
@@ -239,10 +239,10 @@ public class TCPPassthroughV2 {
         do {
             let taurosRobotConn = try Socket.create(family: .inet)
             try taurosRobotConn.connect(to: host, port: Int32(port))
-            os_log("Connected to: %s:%i", type: .info, taurosRobotConn.remoteHostname, taurosRobotConn.remotePort)
+            os_log("Connected to: %s:%i as Robot Connection", type: .info, taurosRobotConn.remoteHostname, taurosRobotConn.remotePort)
             return taurosRobotConn
         } catch {
-            os_log("Socket error: %s", type: .error, error.localizedDescription)
+            os_log("Socket error when connection to Robot Connection: %s", type: .error, error.localizedDescription)
             return nil
         }
     }
