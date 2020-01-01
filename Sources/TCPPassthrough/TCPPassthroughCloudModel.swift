@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct TCPPassthroughCloudModel: Codable {
+public struct TCPPassthroughCloudModel: Codable {
     var local_user_uid: String
     var local_username: String
     var local_user_lat: Float
