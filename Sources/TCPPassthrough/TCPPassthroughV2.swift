@@ -12,7 +12,7 @@ let TCP_PASSTHROUGH_RETRY_DELAY_SECONDS_V2 = 1
 let TCP_PASSTHROUGH_QUEUE_LABEL = "com.davidcorbin.TCPPassthroughV2"
 
 public class TCPPassthroughV2 {
-    static let shared = TCPPassthroughV2()
+    public static let shared = TCPPassthroughV2()
     private init() {} // Don't allow manual initialization; this a singleton
     
     var cloudData: TCPPassthroughCloudModel? = nil
