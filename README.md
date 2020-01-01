@@ -1,3 +1,3 @@
 # TCPPassthrough
 
-A description of this package.
+Full duplex TCP data transfer between sockets. Uses Grand Central Dispatch for concurrency.
