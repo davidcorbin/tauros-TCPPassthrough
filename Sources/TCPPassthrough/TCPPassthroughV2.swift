@@ -216,17 +216,17 @@ public class TCPPassthroughV2 {
     }
     
     private func connectToTaurosCloudSync() -> Socket? {
-        guard let cloudData = self.cloudData, let listeningPort = getLocalConnectionPortFromCloudSync(json: cloudData) else {
+        guard let cloudData = self.cloudData, let host = self.cloudAPIConnection?.host, let listeningPort = getLocalConnectionPortFromCloudSync(json: cloudData) else {
             return nil
         }
 
         do {
             let taurosCloudConn = try Socket.create(family: .inet)
-            try taurosCloudConn.connect(to: "127.0.0.1", port: Int32(listeningPort))
+            try taurosCloudConn.connect(to: host, port: Int32(listeningPort))
             os_log("Connected to: %s:%i as Cloud Connection", type: .info, taurosCloudConn.remoteHostname, taurosCloudConn.remotePort)
             return taurosCloudConn
         } catch {
-            os_log("Socket error when connecting to Cloud Connection: %s", type: .error, error.localizedDescription)
+            os_log("Socket error when connecting to Cloud Connection - Host: %s, listeningPort: %i, Error: %s", type: .error, String(host), listeningPort, error.localizedDescription)
             return nil
         }
     }
@@ -242,7 +242,7 @@ public class TCPPassthroughV2 {
             os_log("Connected to: %s:%i as Robot Connection", type: .info, taurosRobotConn.remoteHostname, taurosRobotConn.remotePort)
             return taurosRobotConn
         } catch {
-            os_log("Socket error when connection to Robot Connection: %s", type: .error, error.localizedDescription)
+            os_log("Socket error when connection to Robot Connection - Host: %s, listeningPort: %i, Error: %s", type: .error, host, port, error.localizedDescription)
             return nil
         }
     }
