@@ -15,7 +15,7 @@ public class TCPPassthroughV2 {
     public static let shared = TCPPassthroughV2()
     private init() {} // Don't allow manual initialization; this a singleton
     
-    let logger = Logger(label: "com.davidcorbin.TCPPassthroughV2")
+    var logger = Logger(label: "com.davidcorbin.TCPPassthroughV2")
     
     var cloudData: TCPPassthroughCloudModel? = nil
     var cloudAPIConnection: URL? = nil
@@ -29,7 +29,9 @@ public class TCPPassthroughV2 {
     var robotSocketConn: Socket? = nil
     
     public func start(cloudData: TCPPassthroughCloudModel, cloudAPIConnection: URL, robotAPIConnection: URL) {
-        logger.info("Starting TCPPassthrough")
+        self.logger[metadataKey: "Package"] = "TCPPassthroughV2"
+        
+        self.logger.info("Starting TCPPassthrough")
         self.cloudData = cloudData
         self.cloudAPIConnection = cloudAPIConnection
         self.robotAPIConnection = robotAPIConnection
