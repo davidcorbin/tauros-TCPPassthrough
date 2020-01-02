@@ -4,9 +4,9 @@
 //  Created by David Corbin on 12/30/19.
 //
 
-import os
 import Foundation
 import Socket
+import Logging
 
 let TCP_PASSTHROUGH_RETRY_DELAY_SECONDS_V2 = 1
 let TCP_PASSTHROUGH_QUEUE_LABEL = "com.davidcorbin.TCPPassthroughV2"
@@ -14,6 +14,8 @@ let TCP_PASSTHROUGH_QUEUE_LABEL = "com.davidcorbin.TCPPassthroughV2"
 public class TCPPassthroughV2 {
     public static let shared = TCPPassthroughV2()
     private init() {} // Don't allow manual initialization; this a singleton
+    
+    let logger = Logger(label: "com.davidcorbin.TCPPassthroughV2")
     
     var cloudData: TCPPassthroughCloudModel? = nil
     var cloudAPIConnection: URL? = nil
@@ -27,7 +29,7 @@ public class TCPPassthroughV2 {
     var robotSocketConn: Socket? = nil
     
     public func start(cloudData: TCPPassthroughCloudModel, cloudAPIConnection: URL, robotAPIConnection: URL) {
-        os_log("Starting TCPPassthrough", type: .info)
+        logger.info("Starting TCPPassthrough")
         self.cloudData = cloudData
         self.cloudAPIConnection = cloudAPIConnection
         self.robotAPIConnection = robotAPIConnection
@@ -36,7 +38,7 @@ public class TCPPassthroughV2 {
         connectToCloudAsync()
         
         connectionDispatchGroup.notify(queue: dispatchQueue) {
-            os_log("All connections completed", type: .info)
+            self.logger.info("All connections completed")
             self.readRobotAndForwardToCloudAsync()
             self.readCloudAndForwardToRobotAsync()
         }
@@ -51,7 +53,7 @@ public class TCPPassthroughV2 {
             DispatchQueue.main.async {
                 self.connectToRobotAsync()
                 self.connectionDispatchGroup.notify(queue: self.dispatchQueue) {
-                    os_log("All connections completed again", type: .info)
+                    self.logger.info("All connections completed again")
                     self.readRobotAndForwardToCloudAsync()
                     self.readCloudAndForwardToRobotAsync()
                 }
@@ -66,7 +68,7 @@ public class TCPPassthroughV2 {
             DispatchQueue.main.async {
                 self.connectToCloudAsync()
                 self.connectionDispatchGroup.notify(queue: self.dispatchQueue) {
-                    os_log("All connections completed again", type: .info)
+                    self.logger.info("All connections completed again")
                     self.readCloudAndForwardToRobotAsync()
                 }
             }
@@ -81,11 +83,11 @@ public class TCPPassthroughV2 {
             do {
                 let bytesRead = try robotSocket.read(into: &readData)
                 guard bytesRead > 0 else {
-                    os_log("Disconnected from Robot Connection: Zero bytes read", type: .info)
+                    self.logger.info("Disconnected from Robot Connection: Zero bytes read")
                     return
                 }
             } catch {
-                os_log("Socket read error: %s", type: .error, error.localizedDescription)
+                logger.error("Socket read error: \(error)")
                 return
             }
             
@@ -93,7 +95,7 @@ public class TCPPassthroughV2 {
             do {
                 try sendDataToCloud(data: readData)
             } catch {
-                os_log("Socket write error: %s", type: .error, error.localizedDescription)
+                self.logger.error("Socket write error: \(error)")
                 return
             }
         }
@@ -107,11 +109,11 @@ public class TCPPassthroughV2 {
             do {
                 let bytesRead = try cloudSocket.read(into: &readData)
                 guard bytesRead > 0 else {
-                    os_log("Disconnected from Cloud Connection: Zero bytes read", type: .info)
+                    self.logger.info("Disconnected from Cloud Connection: Zero bytes read")
                     return
                 }
             } catch {
-                os_log("Socket read error: %s", type: .error, error.localizedDescription)
+                self.logger.error("Socket read error: \(error)")
                 return
             }
             
@@ -119,7 +121,7 @@ public class TCPPassthroughV2 {
             do {
                 try sendDataToRobot(data: readData)
             } catch {
-                os_log("Socket write error: %s", type: .error, error.localizedDescription)
+                self.logger.error("Socket write error: \(error)")
                 return
             }
         }
@@ -175,12 +177,12 @@ public class TCPPassthroughV2 {
         do {
             jsonData = try JSONEncoder().encode(json)
         } catch {
-            os_log("Error encoding JSON: %s", type: .error, error.localizedDescription)
+            self.logger.error("Error encoding JSON: \(error)")
         }
         
         guard let cloudAPIConn = self.cloudAPIConnection else {
-             os_log("Error reading cloudAPIConnection")
-             return nil
+            self.logger.error("Error reading cloudAPIConnection")
+            return nil
         }
         
         var request = URLRequest(url: cloudAPIConn)
@@ -196,7 +198,7 @@ public class TCPPassthroughV2 {
             defer { sem.signal() }
             
             guard let data = data, error == nil else {
-                os_log("Error retreiveing host from Cloud API", type: .info)
+                self.logger.info("Error retreiveing host from Cloud API")
                 listeningPort = nil
                 return
             }
@@ -223,10 +225,10 @@ public class TCPPassthroughV2 {
         do {
             let taurosCloudConn = try Socket.create(family: .inet)
             try taurosCloudConn.connect(to: host, port: Int32(listeningPort))
-            os_log("Connected to: %s:%i as Cloud Connection", type: .info, taurosCloudConn.remoteHostname, taurosCloudConn.remotePort)
+            self.logger.info("Connected to: \(taurosCloudConn.remoteHostname):\(taurosCloudConn.remotePort) as Cloud Connection")
             return taurosCloudConn
         } catch {
-            os_log("Socket error when connecting to Cloud Connection - Host: %s, listeningPort: %i, Error: %s", type: .error, String(host), listeningPort, error.localizedDescription)
+            self.logger.error("Socket error when connecting to Cloud Connection - Host: \(host), listeningPort: \(listeningPort), Error: \(error)")
             return nil
         }
     }
@@ -239,10 +241,10 @@ public class TCPPassthroughV2 {
         do {
             let taurosRobotConn = try Socket.create(family: .inet)
             try taurosRobotConn.connect(to: host, port: Int32(port))
-            os_log("Connected to: %s:%i as Robot Connection", type: .info, taurosRobotConn.remoteHostname, taurosRobotConn.remotePort)
+            self.logger.info("Connected to: \(taurosRobotConn.remoteHostname):\(taurosRobotConn.remotePort) as Robot Connection")
             return taurosRobotConn
         } catch {
-            os_log("Socket error when connection to Robot Connection - Host: %s, listeningPort: %i, Error: %s", type: .error, host, port, error.localizedDescription)
+            self.logger.error("Socket error when connection to Robot Connection - Host: \(host), listeningPort: \(port), Error: \(error)")
             return nil
         }
     }
