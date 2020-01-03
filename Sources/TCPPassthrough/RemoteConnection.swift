@@ -59,7 +59,7 @@ class RemoteConnection: TCPConnection {
     }
     
     func connectToTaurosCloudSync() -> Socket? {
-        guard let host = self.cloudAPIConnection.host,
+        guard let host = self.cloudAPIConnection.baseURL,
             let listeningPort = self.getLocalConnectionPortFromCloudSync(cloudConnectionModel: cloudData, cloudAPIEndpoint: self.cloudAPIConnection) else {
             return nil
         }
