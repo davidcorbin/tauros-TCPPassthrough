@@ -17,6 +17,8 @@ public class TCPPassthroughV2 {
     
     var logger = Logger(label: "com.davidcorbin.TCPPassthroughV2")
     
+    var delegate: TCPPassthroughDelegate?
+    
     var cloudData: TCPPassthroughCloudModel? = nil
     var cloudAPIConnection: URL? = nil
     var robotAPIConnection: URL? = nil
@@ -40,6 +42,7 @@ public class TCPPassthroughV2 {
         connectToCloudAsync()
         
         connectionDispatchGroup.notify(queue: dispatchQueue) {
+            self.delegate?.didMakeRobotConnection()
             self.logger.info("All connections completed")
             self.readRobotAndForwardToCloudAsync()
             self.readCloudAndForwardToRobotAsync()
