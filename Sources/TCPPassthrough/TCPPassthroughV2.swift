@@ -93,10 +93,12 @@ public class TCPPassthroughV2 {
                 let bytesRead = try robotSocket.read(into: &readData)
                 guard bytesRead > 0 else {
                     self.logger.info("Disconnected from Robot Connection: Zero bytes read")
+                    self.delegate?.didDisconnectFromRobot()
                     return
                 }
             } catch {
                 logger.error("Socket read error: \(error)")
+                self.delegate?.didDisconnectFromRobot()
                 return
             }
             
@@ -105,6 +107,7 @@ public class TCPPassthroughV2 {
                 try sendDataToCloud(data: readData)
             } catch {
                 self.logger.error("Socket write error: \(error)")
+                self.delegate?.didDisconnectFromRobot()
                 return
             }
         }
