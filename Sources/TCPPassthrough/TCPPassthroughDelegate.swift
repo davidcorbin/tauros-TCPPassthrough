@@ -7,6 +7,6 @@
 
 import Foundation
 
-protocol TCPPassthroughDelegate {
+public protocol TCPPassthroughDelegate {
     func didMakeRobotConnection()
 }
