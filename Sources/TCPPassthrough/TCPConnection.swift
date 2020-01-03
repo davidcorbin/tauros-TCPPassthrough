@@ -14,6 +14,7 @@ class TCPConnection {
     
     func getSocketConnection(url: URL) -> Socket? {
         guard let host = url.host, let port = url.port else {
+            logger.critical("URL parsing error - host: \(String(describing: url.host)), port: \(String(describing: url.port))")
             return nil
         }
 
