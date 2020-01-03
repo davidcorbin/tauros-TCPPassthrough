@@ -17,7 +17,7 @@ public class TCPPassthroughV2 {
     
     var logger = Logger(label: "com.davidcorbin.TCPPassthroughV2")
     
-    var delegate: TCPPassthroughDelegate?
+    public var delegate: TCPPassthroughDelegate?
     
     var cloudData: TCPPassthroughCloudModel? = nil
     var cloudAPIConnection: URL? = nil
