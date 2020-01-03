@@ -69,6 +69,8 @@ class RemoteConnection: TCPConnection {
         
         let socketURL = URL(string: host + ":" + String(listeningPort))!
         
+        print(socketURL)
+        
         return getSocketConnection(url: socketURL)
     }
 }
