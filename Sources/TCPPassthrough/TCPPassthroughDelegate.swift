@@ -8,5 +8,6 @@
 import Foundation
 
 public protocol TCPPassthroughDelegate {
-    func didMakeRobotConnection()
+    func didConnectToRobot()
+    func didDisconnectFromRobot()
 }

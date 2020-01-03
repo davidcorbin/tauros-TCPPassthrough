@@ -12,6 +12,7 @@ let TCP_PASSTHROUGH_RETRY_DELAY_SECONDS_V2 = 1
 let TCP_PASSTHROUGH_QUEUE_LABEL = "com.davidcorbin.TCPPassthroughV2"
 
 public class TCPPassthroughV2 {
+    // Shared singleton
     public static let shared = TCPPassthroughV2()
     private init() {} // Don't allow manual initialization; this a singleton
     
@@ -30,10 +31,9 @@ public class TCPPassthroughV2 {
     var cloudSocketConn: Socket? = nil
     var robotSocketConn: Socket? = nil
     
-    public func start(cloudData: TCPPassthroughCloudModel, cloudAPIConnection: URL, robotAPIConnection: URL) {
-        self.logger[metadataKey: "Package"] = "TCPPassthroughV2"
-        
+    public func start(cloudData: TCPPassthroughCloudModel, cloudAPIConnection: URL, robotAPIConnection: URL) {        
         self.logger.info("Starting TCPPassthrough")
+        
         self.cloudData = cloudData
         self.cloudAPIConnection = cloudAPIConnection
         self.robotAPIConnection = robotAPIConnection
@@ -42,12 +42,14 @@ public class TCPPassthroughV2 {
         connectToCloudAsync()
         
         connectionDispatchGroup.notify(queue: dispatchQueue) {
-            self.delegate?.didMakeRobotConnection()
             self.logger.info("All connections completed")
+
             self.readRobotAndForwardToCloudAsync()
             self.readCloudAndForwardToRobotAsync()
         }
     }
+    
+    // - MARK: Read and Forward Data Async
     
     private func readRobotAndForwardToCloudAsync() {
         self.dispatchQueue.async {
@@ -79,6 +81,8 @@ public class TCPPassthroughV2 {
             }
         }
     }
+    
+    // - MARK: Read and Forward Data Sync
     
     private func readRobotAndForwardToCloudSync() {
         while let robotSocket = self.robotSocketConn, robotSocket.isConnected {
@@ -140,13 +144,22 @@ public class TCPPassthroughV2 {
         try self.cloudSocketConn?.write(from: data)
     }
     
+    // - MARK: Establish Connection Async
     
     private func connectToRobotAsync() {
         self.connectionDispatchGroup.enter()
         self.dispatchQueue.async {
             // While not connected, connect to robot
             while self.robotSocketConn == nil || !self.robotSocketConn!.isConnected {
-                let socketVal = self.connectToTaurosRobotInterfaceSync()
+                guard let url = self.robotAPIConnection else {
+                    self.logger.critical("Could not cast URL")
+                    return
+                }
+
+                let lc = LocalConnection(robotSocketURL: url)
+                let socketVal = lc.connectToTaurosRobotInterfaceSync()
+                
+                // If connection failed, wait and try again
                 if socketVal == nil {
                     sleep(UInt32(TCP_PASSTHROUGH_RETRY_DELAY_SECONDS_V2))
                 } else {
@@ -154,6 +167,8 @@ public class TCPPassthroughV2 {
                     break
                 }
             }
+            
+            self.delegate?.didConnectToRobot()
             
             self.connectionDispatchGroup.leave()
         }
@@ -164,7 +179,19 @@ public class TCPPassthroughV2 {
         self.dispatchQueue.async {
             // While not connected, connect to cloud
             while self.cloudSocketConn == nil || !self.cloudSocketConn!.isConnected {
-                let socketVal = self.connectToTaurosCloudSync()
+                guard let url = self.cloudAPIConnection else {
+                    self.logger.critical("Could not cast URL")
+                    return
+                }
+                
+                guard let cloudData = self.cloudData else {
+                    self.logger.critical("Could not cast cloud data object")
+                    return
+                }
+
+                let rc = RemoteConnection(cloudData: cloudData, cloudAPIConnection: url)
+                let socketVal = rc.connectToTaurosCloudSync()
+                
                 if socketVal == nil {
                     sleep(UInt32(TCP_PASSTHROUGH_RETRY_DELAY_SECONDS_V2))
                 } else {
@@ -174,83 +201,6 @@ public class TCPPassthroughV2 {
             }
             
             self.connectionDispatchGroup.leave()
-        }
-    }
-    
-    private func getLocalConnectionPortFromCloudSync(json: TCPPassthroughCloudModel) -> Int? {
-        var jsonData:Data? = nil
-        do {
-            jsonData = try JSONEncoder().encode(json)
-        } catch {
-            self.logger.error("Error encoding JSON: \(error)")
-        }
-        
-        guard let cloudAPIConn = self.cloudAPIConnection else {
-            self.logger.error("Error reading cloudAPIConnection")
-            return nil
-        }
-        
-        var request = URLRequest(url: cloudAPIConn)
-        request.httpMethod = "POST"
-
-        request.httpBody = jsonData
-        
-        let sem = DispatchSemaphore(value: 0)
-        
-        var listeningPort: Int?
-
-        let task = URLSession.shared.dataTask(with: request) { data, response, error in
-            defer { sem.signal() }
-            
-            guard let data = data, error == nil else {
-                self.logger.info("Error retreiveing host from Cloud API")
-                listeningPort = nil
-                return
-            }
-            let responseJSON = try? JSONSerialization.jsonObject(with: data, options: [])
-            if let responseJSON = responseJSON as? [String: String] {
-                let listeningHostStr = responseJSON["ListeningHost"]
-                let listeningHostPort = listeningHostStr?.dropFirst(5)
-                listeningPort = Int(listeningHostPort!) ?? 0
-            }
-        }
-
-        task.resume()
-        
-        _ = sem.wait(timeout: .distantFuture)
-        
-        return listeningPort
-    }
-    
-    private func connectToTaurosCloudSync() -> Socket? {
-        guard let cloudData = self.cloudData, let host = self.cloudAPIConnection?.host, let listeningPort = getLocalConnectionPortFromCloudSync(json: cloudData) else {
-            return nil
-        }
-
-        do {
-            let taurosCloudConn = try Socket.create(family: .inet)
-            try taurosCloudConn.connect(to: host, port: Int32(listeningPort))
-            self.logger.info("Connected to: \(taurosCloudConn.remoteHostname):\(taurosCloudConn.remotePort) as Cloud Connection")
-            return taurosCloudConn
-        } catch {
-            self.logger.error("Socket error when connecting to Cloud Connection - Host: \(host), listeningPort: \(listeningPort), Error: \(error)")
-            return nil
-        }
-    }
-    
-    private func connectToTaurosRobotInterfaceSync() -> Socket? {
-        guard let host = self.robotAPIConnection?.host, let port = self.robotAPIConnection?.port else {
-            return nil
-        }
-
-        do {
-            let taurosRobotConn = try Socket.create(family: .inet)
-            try taurosRobotConn.connect(to: host, port: Int32(port))
-            self.logger.info("Connected to: \(taurosRobotConn.remoteHostname):\(taurosRobotConn.remotePort) as Robot Connection")
-            return taurosRobotConn
-        } catch {
-            self.logger.error("Socket error when connection to Robot Connection - Host: \(host), listeningPort: \(port), Error: \(error)")
-            return nil
         }
     }
 }
