@@ -18,7 +18,7 @@ public class TCPPassthroughV2 {
     
     var logger = Logger(label: "com.davidcorbin.TCPPassthroughV2")
     
-    public var delegate: TCPPassthroughDelegate?
+    public weak var delegate: TCPPassthroughDelegate?
     
     var cloudData: TCPPassthroughCloudModel? = nil
     var cloudAPIConnection: URL? = nil
@@ -30,7 +30,7 @@ public class TCPPassthroughV2 {
     
     var cloudSocketConn: Socket? = nil
     var robotSocketConn: Socket? = nil
-    
+
     public func start(cloudData: TCPPassthroughCloudModel, cloudAPIConnection: URL, robotAPIConnection: URL) {        
         self.logger.info("Starting TCPPassthrough")
         
@@ -50,7 +50,7 @@ public class TCPPassthroughV2 {
     }
     
     // - MARK: Read and Forward Data Async
-    
+
     private func readRobotAndForwardToCloudAsync() {
         self.dispatchQueue.async {
             self.readRobotAndForwardToCloudSync()
