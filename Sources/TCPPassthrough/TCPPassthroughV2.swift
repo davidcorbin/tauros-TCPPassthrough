@@ -49,6 +49,7 @@ public class TCPPassthroughV2 {
             while !self.isStopped {
                 // Start read loop
                 // When this exists
+                self.logger.info("Starting Local -> Remote connection")
                 self.readLocalAndForwardToRemoteSync()
                 
                 // If local disconnection, close both local and remote
@@ -69,6 +70,7 @@ public class TCPPassthroughV2 {
     private func readRemoteAndForwardToLocalAsync() {
         self.dispatchQueue.async {
             while !self.isStopped {
+                self.logger.info("Starting Remote -> Local connection")
                 self.readRemoteAndForwardToLocalSync()
                 
                 // If remote disconnection, close both local and remote
