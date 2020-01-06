@@ -1,5 +1,6 @@
 //
-//  TCPPassthrough.swift
+//  TCPPassthroughV2.swift
+//
 //
 //  Created by David Corbin on 12/30/19.
 //
@@ -82,22 +83,22 @@ public class TCPPassthroughV2 {
             while !self.isStopped {
                 self.logger.info("Starting Remote -> Local connection")
                 self.readRemoteAndForwardToLocalSync()
-                
+
                 // If remote disconnection, close both local and remote
                 self.localSocketConn?.closeSocket()
                 self.remoteSocketConn?.closeSocket()
-                
+
                 // Call delegates if just disconnected
                 if self.wasConnectedToLocal {
                     self.delegate?.didDisconnectFromLocal()
                     self.wasConnectedToLocal = false
                 }
-                
+
                 if self.wasConnectedToRemote {
                     self.delegate?.didDisconnectFromRemote()
                     self.wasConnectedToRemote = false
                 }
-                
+
                 // Sleep before trying to reconnect
                 if !self.isStopped {
                     sleep(UInt32(TCP_PASSTHROUGH_RETRY_DELAY_SECONDS_V2))
