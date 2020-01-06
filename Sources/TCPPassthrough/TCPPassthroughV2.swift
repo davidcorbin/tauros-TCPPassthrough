@@ -28,6 +28,8 @@ public class TCPPassthroughV2 {
     var remoteSocketConn: TCPConnection? = nil
     
     var isStopped = true
+    var wasConnectedToRemote = false
+    var wasConnectedToLocal = false
 
     public func start(localSocketConn: TCPConnection, remoteSocketConn: TCPConnection) {
         self.logger.info("Starting TCPPassthrough")
@@ -56,8 +58,16 @@ public class TCPPassthroughV2 {
                 self.localSocketConn?.closeSocket()
                 self.remoteSocketConn?.closeSocket()
                 
-                self.delegate?.didDisconnectFromLocal()
-                self.delegate?.didConnectToRemote()
+                // Call delegates if was connected previously
+                if self.wasConnectedToLocal {
+                    self.delegate?.didDisconnectFromLocal()
+                    self.wasConnectedToLocal = false
+                }
+                
+                if self.wasConnectedToRemote {
+                    self.delegate?.didDisconnectFromRemote()
+                    self.wasConnectedToRemote = false
+                }
                 
                 // Sleep before trying to reconnect
                 if !self.isStopped {
@@ -77,8 +87,16 @@ public class TCPPassthroughV2 {
                 self.localSocketConn?.closeSocket()
                 self.remoteSocketConn?.closeSocket()
                 
-                self.delegate?.didDisconnectFromLocal()
-                self.delegate?.didConnectToRemote()
+                // Call delegates if just disconnected
+                if self.wasConnectedToLocal {
+                    self.delegate?.didDisconnectFromLocal()
+                    self.wasConnectedToLocal = false
+                }
+                
+                if self.wasConnectedToRemote {
+                    self.delegate?.didDisconnectFromRemote()
+                    self.wasConnectedToRemote = false
+                }
                 
                 // Sleep before trying to reconnect
                 if !self.isStopped {
@@ -92,6 +110,7 @@ public class TCPPassthroughV2 {
     
     private func readLocalAndForwardToRemoteSync() {
         while let localSocket = self.localSocketConn?.getSocketConnection(), localSocket.isConnected {
+            self.wasConnectedToLocal = true
             var readData = Data(capacity: localSocket.readBufferSize)
             
             // Try to read data
@@ -118,6 +137,7 @@ public class TCPPassthroughV2 {
     
     private func readRemoteAndForwardToLocalSync() {
         while let remoteSocket = self.remoteSocketConn?.getSocketConnection(), remoteSocket.isConnected {
+            self.wasConnectedToRemote = true
             var readData = Data(capacity: remoteSocket.readBufferSize)
             
             // Try to read data
