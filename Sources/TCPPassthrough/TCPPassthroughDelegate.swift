@@ -8,6 +8,17 @@
 import Foundation
 
 public protocol TCPPassthroughDelegate: class {
-    func didConnectToRobot()
-    func didDisconnectFromRobot()
+    func didConnectToLocal()
+    func didDisconnectFromLocal()
+    
+    func didConnectToRemote()
+    func didDisconnectFromRemote()
+}
+
+extension TCPPassthroughDelegate {
+    func didConnectToLocal() {}
+    func didDisconnectFromLocal() {}
+    
+    func didConnectToRemote() {}
+    func didDisconnectFromRemote() {}
 }
