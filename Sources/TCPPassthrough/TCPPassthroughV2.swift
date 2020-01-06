@@ -110,7 +110,13 @@ public class TCPPassthroughV2 {
     
     private func readLocalAndForwardToRemoteSync() {
         while let localSocket = self.localSocketConn?.getSocketConnection(), localSocket.isConnected {
+
+            // Notify that local connection is complete
+            if !self.wasConnectedToLocal {
+                self.delegate?.didConnectToLocal()
+            }
             self.wasConnectedToLocal = true
+            
             var readData = Data(capacity: localSocket.readBufferSize)
             
             // Try to read data
@@ -137,7 +143,13 @@ public class TCPPassthroughV2 {
     
     private func readRemoteAndForwardToLocalSync() {
         while let remoteSocket = self.remoteSocketConn?.getSocketConnection(), remoteSocket.isConnected {
+
+            // Notify that remote connection is complete
+            if !self.wasConnectedToRemote {
+                self.delegate?.didConnectToRemote()
+            }
             self.wasConnectedToRemote = true
+            
             var readData = Data(capacity: remoteSocket.readBufferSize)
             
             // Try to read data
