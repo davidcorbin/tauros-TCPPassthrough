@@ -17,21 +17,27 @@ public class TCPPassthroughV2 {
     public static let shared = TCPPassthroughV2()
     private init() {} // Don't allow manual initialization; this a singleton
     
-    var logger = Logger(label: TCP_PASSTHROUGH_QUEUE_LABEL)
+    // Logger
+    private var logger = Logger(label: TCP_PASSTHROUGH_QUEUE_LABEL)
     
+    // Delegate
     public weak var delegate: TCPPassthroughDelegate?
     
-    let dispatchQueue = DispatchQueue(label: TCP_PASSTHROUGH_QUEUE_LABEL, attributes: .concurrent)
-    let connectionDispatchGroup = DispatchGroup()
-    let passthroughDispatchGroup = DispatchGroup()
+    private let dispatchQueue = DispatchQueue(label: TCP_PASSTHROUGH_QUEUE_LABEL, attributes: .concurrent)
     
-    var localSocketConn: TCPConnection? = nil
-    var remoteSocketConn: TCPConnection? = nil
+    private var localSocketConn: TCPConnection? = nil
+    private var remoteSocketConn: TCPConnection? = nil
     
-    var isStopped = true
-    var wasConnectedToRemote = false
-    var wasConnectedToLocal = false
+    private var isStopped = true
+    private var wasConnectedToRemote = false
+    private var wasConnectedToLocal = false
 
+    /**
+     Start full duplex connection between two TCP servers.
+     
+     - Parameter localSocketConn: TCP server to connect to first
+     - Parameter remoteSocketConn: TCP server to connect to second
+     */
     public func start(localSocketConn: TCPConnection, remoteSocketConn: TCPConnection) {
         self.logger.info("Starting TCPPassthrough")
         
@@ -183,6 +189,9 @@ public class TCPPassthroughV2 {
         try self.remoteSocketConn?.writeSocket(data: data)
     }
     
+    /**
+     Close connection between two TCP servers.
+     */
     public func stop() {
         self.isStopped = true
         self.localSocketConn?.closeSocket()
