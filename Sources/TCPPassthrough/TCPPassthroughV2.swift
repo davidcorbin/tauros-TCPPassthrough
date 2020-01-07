@@ -31,6 +31,11 @@ public class TCPPassthroughV2 {
     private var isStopped = true
     private var wasConnectedToRemote = false
     private var wasConnectedToLocal = false
+    
+    private var remoteToLocalByteCounter = 0
+    private var localToRemoteByteCounter = 0
+    private var lastUpdatedDateRtoL = Date()
+    private var lastUpdatedDateLtoR = Date()
 
     /**
      Start full duplex connection between two TCP servers.
@@ -133,6 +138,8 @@ public class TCPPassthroughV2 {
                     self.logger.info("disconnected from Local Connection")
                     return
                 }
+                
+                updateLocalToRemoteByteCounter(numOfBytes: bytesRead)
             } catch {
                 logger.error("Local socket read error: \(error)")
                 return
@@ -166,6 +173,8 @@ public class TCPPassthroughV2 {
                     self.logger.info("disconnected from Remote Connection")
                     return
                 }
+                
+                updateRemoteToLocalByteCounter(numOfBytes: bytesRead)
             } catch {
                 self.logger.error("Remote socket read error: \(error)")
                 return
@@ -196,5 +205,29 @@ public class TCPPassthroughV2 {
         self.isStopped = true
         self.localSocketConn?.closeSocket()
         self.remoteSocketConn?.closeSocket()
+    }
+    
+    // - MARK: Data transfer rates
+    
+    private func updateRemoteToLocalByteCounter(numOfBytes: Int) {
+        // If more than a second has passed
+        if let diff = Calendar.current.dateComponents([.second], from: self.lastUpdatedDateRtoL, to: Date()).second, diff >= 1 {
+            self.delegate?.bytesTransferredRtoL(numOfBytes: self.remoteToLocalByteCounter + numOfBytes)
+            self.lastUpdatedDateRtoL = Date()
+            self.remoteToLocalByteCounter = 0
+        } else {
+            self.remoteToLocalByteCounter += numOfBytes
+        }
+    }
+    
+    private func updateLocalToRemoteByteCounter(numOfBytes: Int) {
+        // If more than a second has passed
+        if let diff = Calendar.current.dateComponents([.second], from: self.lastUpdatedDateLtoR, to: Date()).second, diff >= 1 {
+            self.delegate?.bytesTransferredLtoR(numOfBytes: self.localToRemoteByteCounter + numOfBytes)
+            self.lastUpdatedDateLtoR = Date()
+            self.localToRemoteByteCounter = 0
+        } else {
+            self.localToRemoteByteCounter += numOfBytes
+        }
     }
 }

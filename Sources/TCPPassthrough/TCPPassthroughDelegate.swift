@@ -13,6 +13,9 @@ public protocol TCPPassthroughDelegate: class {
     
     func didConnectToRemote()
     func didDisconnectFromRemote()
+    
+    func bytesTransferredLtoR(numOfBytes: Int)
+    func bytesTransferredRtoL(numOfBytes: Int)
 }
 
 extension TCPPassthroughDelegate {
@@ -21,4 +24,7 @@ extension TCPPassthroughDelegate {
     
     func didConnectToRemote() {}
     func didDisconnectFromRemote() {}
+    
+    func bytesTransferredLtoR(numOfBytes: Int) {}
+    func bytesTransferredRtoL(numOfBytes: Int) {}
 }
