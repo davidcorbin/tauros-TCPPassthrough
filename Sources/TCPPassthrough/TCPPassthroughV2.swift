@@ -34,8 +34,8 @@ public class TCPPassthroughV2 {
     
     private var remoteToLocalByteCounter = 0
     private var localToRemoteByteCounter = 0
-    private var lastUpdatedDateRtoL = Date()
-    private var lastUpdatedDateLtoR = Date()
+    private var isRtoLTimerRunning = false
+    private var isLtoRTimerRunning = false
 
     /**
      Start full duplex connection between two TCP servers.
@@ -210,24 +210,26 @@ public class TCPPassthroughV2 {
     // - MARK: Data transfer rates
     
     private func updateRemoteToLocalByteCounter(numOfBytes: Int) {
-        // If more than a second has passed
-        if let diff = Calendar.current.dateComponents([.second], from: self.lastUpdatedDateRtoL, to: Date()).second, diff >= 1 {
-            self.delegate?.bytesTransferredRtoL(numOfBytes: self.remoteToLocalByteCounter + numOfBytes)
-            self.lastUpdatedDateRtoL = Date()
-            self.remoteToLocalByteCounter = 0
-        } else {
+        if self.isRtoLTimerRunning {
             self.remoteToLocalByteCounter += numOfBytes
+        } else {
+            self.isRtoLTimerRunning = true
+            self.dispatchQueue.asyncAfter(deadline: .now() + .seconds(1), execute: {
+                self.delegate?.bytesTransferredRtoL(numOfBytes: self.remoteToLocalByteCounter)
+                self.isRtoLTimerRunning = false
+            })
         }
     }
     
     private func updateLocalToRemoteByteCounter(numOfBytes: Int) {
-        // If more than a second has passed
-        if let diff = Calendar.current.dateComponents([.second], from: self.lastUpdatedDateLtoR, to: Date()).second, diff >= 1 {
-            self.delegate?.bytesTransferredLtoR(numOfBytes: self.localToRemoteByteCounter + numOfBytes)
-            self.lastUpdatedDateLtoR = Date()
-            self.localToRemoteByteCounter = 0
-        } else {
+        if self.isLtoRTimerRunning {
             self.localToRemoteByteCounter += numOfBytes
+        } else {
+            self.isLtoRTimerRunning = true
+            self.dispatchQueue.asyncAfter(deadline: .now() + .seconds(1), execute: {
+                self.delegate?.bytesTransferredLtoR(numOfBytes: self.localToRemoteByteCounter)
+                self.isLtoRTimerRunning = false
+            })
         }
     }
 }
