@@ -139,11 +139,11 @@ public class TCPPassthroughV2 {
                     return
                 }
                 
-                print(readData.hexEncodedString())
+                //print(readData.hexEncodedString())
                 
-                readData = readData.subdata(in: 0..<bytesRead)
+                //readData = readData.subdata(in: 0..<bytesRead)
                 
-                print(readData.hexEncodedString())
+                //print(readData.hexEncodedString())
                 
                 updateLocalToRemoteByteCounter(numOfBytes: bytesRead)
             } catch {
@@ -171,7 +171,6 @@ public class TCPPassthroughV2 {
             self.wasConnectedToRemote = true
             
             var readData = Data(capacity: remoteSocket.readBufferSize)
-            print(readData.count)
             
             // Try to read data
             do {
@@ -180,14 +179,6 @@ public class TCPPassthroughV2 {
                     self.logger.info("disconnected from Remote Connection")
                     return
                 }
-                
-                print(readData.hexEncodedString())
-                print(readData.count)
-                
-                var asdf = readData.subdata(in: 0..<bytesRead)
-                
-                print(asdf.hexEncodedString())
-                print(asdf.count)
                 
                 updateRemoteToLocalByteCounter(numOfBytes: bytesRead)
             } catch {
