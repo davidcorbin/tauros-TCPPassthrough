@@ -139,6 +139,8 @@ public class TCPPassthroughV2 {
                     return
                 }
                 
+                readData = readData.subdata(in: 0..<bytesRead)
+                
                 updateLocalToRemoteByteCounter(numOfBytes: bytesRead)
             } catch {
                 logger.error("Local socket read error: \(error)")
@@ -173,6 +175,8 @@ public class TCPPassthroughV2 {
                     self.logger.info("disconnected from Remote Connection")
                     return
                 }
+                
+                readData = readData.subdata(in: 0..<bytesRead)
                 
                 updateRemoteToLocalByteCounter(numOfBytes: bytesRead)
             } catch {
