@@ -171,6 +171,7 @@ public class TCPPassthroughV2 {
             self.wasConnectedToRemote = true
             
             var readData = Data(capacity: remoteSocket.readBufferSize)
+            print(readData.count)
             
             // Try to read data
             do {
@@ -181,10 +182,12 @@ public class TCPPassthroughV2 {
                 }
                 
                 print(readData.hexEncodedString())
+                print(readData.count)
                 
-                readData = readData.subdata(in: 0..<bytesRead)
+                var asdf = readData.subdata(in: 0..<bytesRead)
                 
-                print(readData.hexEncodedString())
+                print(asdf.hexEncodedString())
+                print(asdf.count)
                 
                 updateRemoteToLocalByteCounter(numOfBytes: bytesRead)
             } catch {
