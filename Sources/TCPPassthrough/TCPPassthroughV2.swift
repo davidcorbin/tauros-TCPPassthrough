@@ -139,7 +139,10 @@ public class TCPPassthroughV2 {
                     return
                 }
                                 
-                readData = readData.subdata(in: 0..<bytesRead)
+                var trimmedData = readData.subdata(in: 0..<bytesRead)
+                
+                print(readData.hexEncodedString())
+                print(trimmedData.hexEncodedString())
                                 
                 updateLocalToRemoteByteCounter(numOfBytes: bytesRead)
             } catch {
@@ -176,7 +179,7 @@ public class TCPPassthroughV2 {
                     return
                 }
                 
-                readData = readData.subdata(in: 0..<bytesRead)
+                var trimmedData = readData.subdata(in: 0..<bytesRead)
                 
                 updateRemoteToLocalByteCounter(numOfBytes: bytesRead)
             } catch {
