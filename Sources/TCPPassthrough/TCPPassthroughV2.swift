@@ -36,6 +36,10 @@ public class TCPPassthroughV2 {
     private var localToRemoteByteCounter = 0
     private var isRtoLTimerRunning = false
     private var isLtoRTimerRunning = false
+    
+    private var isConnectedToLocal = false
+    
+    private var bufferedData = [Data]()
 
     /**
      Start full duplex connection between two TCP servers.
@@ -53,6 +57,7 @@ public class TCPPassthroughV2 {
 
         self.readLocalAndForwardToRemoteAsync()
         self.readRemoteAndForwardToLocalAsync()
+        
     }
     
     // - MARK: Read and Forward Data Async
@@ -65,6 +70,8 @@ public class TCPPassthroughV2 {
                 // When this exists
                 self.logger.info("Starting Local -> Remote connection")
                 self.readLocalAndForwardToRemoteSync()
+                
+                self.isConnectedToLocal = false
                 
                 // If local disconnection, close both local and remote
                 self.localSocketConn?.closeSocket()
@@ -92,6 +99,10 @@ public class TCPPassthroughV2 {
     private func readRemoteAndForwardToLocalAsync() {
         self.dispatchQueue.async {
             while !self.isStopped {
+                if !self.isConnectedToLocal {
+                    sleep(UInt32(TCP_PASSTHROUGH_RETRY_DELAY_SECONDS_V2))
+                }
+                
                 self.logger.info("Starting Remote -> Local connection")
                 self.readRemoteAndForwardToLocalSync()
 
@@ -122,13 +133,8 @@ public class TCPPassthroughV2 {
     
     private func readLocalAndForwardToRemoteSync() {
         while let localSocket = self.localSocketConn?.getSocketConnection(), localSocket.isConnected {
+            self.isConnectedToLocal = true
 
-            // Notify that local connection is complete
-            if !self.wasConnectedToLocal {
-                self.delegate?.didConnectToLocal()
-            }
-            self.wasConnectedToLocal = true
-            
             var readData = Data(capacity: localSocket.readBufferSize)
             
             // Try to read data
@@ -138,37 +144,48 @@ public class TCPPassthroughV2 {
                     self.logger.info("disconnected from Local Connection")
                     return
                 }
-                                
-                var trimmedData = readData.subdata(in: 0..<bytesRead)
-                
-                print(readData.hexEncodedString())
-                print(trimmedData.hexEncodedString())
-                                
+
                 updateLocalToRemoteByteCounter(numOfBytes: bytesRead)
             } catch {
                 logger.error("Local socket read error: \(error)")
                 return
             }
-            
+
             // Try to write data
             do {
+                for data in self.bufferedData {
+                    // Try to write data
+                    do {
+                        try sendDataToLocal(data: readData)
+                    } catch {
+                        self.logger.error("Remote socket write error: \(error)")
+                        return
+                    }
+                }
+                self.bufferedData = []
                 try sendDataToRemote(data: readData)
             } catch {
-                self.logger.error("Local socket write error: \(error)")
+                self.logger.warning("Local socket write error: \(error)")
+                
+                self.logger.info("Added data to buffer to be forwarded when remote connects")
+                self.bufferedData.append(readData)
+                
                 return
             }
+            
+            // Notify that local connection is complete
+            if !self.wasConnectedToLocal {
+                self.delegate?.didConnectToLocal()
+            }
+            self.wasConnectedToLocal = true
         }
+        
+        // Wait to try to connect again
+        sleep(UInt32(TCP_PASSTHROUGH_RETRY_DELAY_SECONDS_V2))
     }
     
     private func readRemoteAndForwardToLocalSync() {
         while let remoteSocket = self.remoteSocketConn?.getSocketConnection(), remoteSocket.isConnected {
-
-            // Notify that remote connection is complete
-            if !self.wasConnectedToRemote {
-                self.delegate?.didConnectToRemote()
-            }
-            self.wasConnectedToRemote = true
-            
             var readData = Data(capacity: remoteSocket.readBufferSize)
             
             // Try to read data
@@ -178,9 +195,7 @@ public class TCPPassthroughV2 {
                     self.logger.info("disconnected from Remote Connection")
                     return
                 }
-                
-                var trimmedData = readData.subdata(in: 0..<bytesRead)
-                
+
                 updateRemoteToLocalByteCounter(numOfBytes: bytesRead)
             } catch {
                 self.logger.error("Remote socket read error: \(error)")
@@ -194,6 +209,12 @@ public class TCPPassthroughV2 {
                 self.logger.error("Remote socket write error: \(error)")
                 return
             }
+            
+            // Notify that remote connection is complete
+            if !self.wasConnectedToRemote {
+                self.delegate?.didConnectToRemote()
+            }
+            self.wasConnectedToRemote = true
         }
     }
     
@@ -241,20 +262,20 @@ public class TCPPassthroughV2 {
     }
 }
 
-extension Data {
-    struct HexEncodingOptions: OptionSet {
-        let rawValue: Int
-        static let upperCase = HexEncodingOptions(rawValue: 1 << 0)
-    }
-
-    func hexEncodedString(options: HexEncodingOptions = []) -> String {
-        let hexDigits = Array((options.contains(.upperCase) ? "0123456789ABCDEF" : "0123456789abcdef").utf16)
-        var chars: [unichar] = []
-        chars.reserveCapacity(2 * count)
-        for byte in self {
-            chars.append(hexDigits[Int(byte / 16)])
-            chars.append(hexDigits[Int(byte % 16)])
-        }
-        return String(utf16CodeUnits: chars, count: chars.count)
-    }
-}
+//extension Data {
+//    struct HexEncodingOptions: OptionSet {
+//        let rawValue: Int
+//        static let upperCase = HexEncodingOptions(rawValue: 1 << 0)
+//    }
+//
+//    func hexEncodedString(options: HexEncodingOptions = []) -> String {
+//        let hexDigits = Array((options.contains(.upperCase) ? "0123456789ABCDEF" : "0123456789abcdef").utf16)
+//        var chars: [unichar] = []
+//        chars.reserveCapacity(2 * count)
+//        for byte in self {
+//            chars.append(hexDigits[Int(byte / 16)])
+//            chars.append(hexDigits[Int(byte % 16)])
+//        }
+//        return String(utf16CodeUnits: chars, count: chars.count)
+//    }
+//}
