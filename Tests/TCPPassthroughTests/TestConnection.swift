@@ -1,6 +1,6 @@
 //
 //  TestConnection.swift
-//  
+//
 //
 //  Created by David Corbin on 1/6/20.
 //
@@ -12,15 +12,15 @@ import Logging
 
 class TestConnection: TCPConnection {
     private var logger = Logger(label: TCP_PASSTHROUGH_QUEUE_LABEL)
-    
+
     private var socket: Socket? = nil
-    
+
     let robotSocketURL: URL
-    
+
     init(robotSocketURL: URL) {
         self.robotSocketURL = robotSocketURL
     }
-    
+
     func getSocketConnection() -> Socket? {
         if let sock = self.socket {
             if sock.isConnected {
@@ -31,12 +31,12 @@ class TestConnection: TCPConnection {
                 self.socket = nil
             }
         }
-        
+
         guard let host = self.robotSocketURL.host, let listeningPort = self.robotSocketURL.port else {
             self.logger.critical("Error casting data")
             return nil
         }
-        
+
         do {
             self.socket = try Socket.create(family: .inet)
             try self.socket?.connect(to: host, port: Int32(listeningPort))
@@ -47,11 +47,11 @@ class TestConnection: TCPConnection {
             return nil
         }
     }
-    
+
     func writeSocket(data: Data) throws {
         try self.socket?.write(from: data)
     }
-    
+
     func closeSocket() {
         guard let sock = self.socket else {
             return
