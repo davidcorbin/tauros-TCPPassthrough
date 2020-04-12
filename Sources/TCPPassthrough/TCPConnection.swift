@@ -14,3 +14,7 @@ public protocol TCPConnection {
     func writeSocket(data: Data) throws
     func closeSocket()
 }
+
+public enum NotConnected: Error {
+    case runtimeError(String)
+}

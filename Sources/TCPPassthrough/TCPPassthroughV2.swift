@@ -20,9 +20,6 @@ public class TCPPassthroughV2 {
     // Logger
     private var logger = Logger(label: TCP_PASSTHROUGH_QUEUE_LABEL)
 
-    // Delegate
-    public weak var delegate: TCPPassthroughDelegate?
-
     private let dispatchQueue = DispatchQueue(label: TCP_PASSTHROUGH_QUEUE_LABEL, attributes: .concurrent)
 
     private var localSocketConn: TCPConnection? = nil
@@ -39,7 +36,9 @@ public class TCPPassthroughV2 {
 
     private var isConnectedToLocal = false
 
-    private var bufferedData = [Data]()
+    private var bufferedDataFromLocal = [Data]()
+    
+    public var latestRemoteReceiveTime: Date? = nil
 
     /**
      Start full duplex connection between two TCP servers.
@@ -70,6 +69,9 @@ public class TCPPassthroughV2 {
                 // When this exists
                 self.logger.info("Starting Local -> Remote connection")
                 self.readLocalAndForwardToRemoteSync()
+                
+                self.logger.info("Clear buffered data")
+                self.bufferedDataFromLocal = []
 
                 self.isConnectedToLocal = false
 
@@ -79,12 +81,16 @@ public class TCPPassthroughV2 {
 
                 // Call delegates if was connected previously
                 if self.wasConnectedToLocal {
-                    self.delegate?.didDisconnectFromLocal()
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(name: .didDisconnectFromLocal, object: nil)
+                    }
                     self.wasConnectedToLocal = false
                 }
 
                 if self.wasConnectedToRemote {
-                    self.delegate?.didDisconnectFromRemote()
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(name: .didDisconnectFromLocal, object: nil)
+                    }
                     self.wasConnectedToRemote = false
                 }
 
@@ -112,12 +118,16 @@ public class TCPPassthroughV2 {
 
                 // Call delegates if just disconnected
                 if self.wasConnectedToLocal {
-                    self.delegate?.didDisconnectFromLocal()
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(name: .didDisconnectFromLocal, object: nil)
+                    }
                     self.wasConnectedToLocal = false
                 }
 
                 if self.wasConnectedToRemote {
-                    self.delegate?.didDisconnectFromRemote()
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(name: .didDisconnectFromRemote, object: nil)
+                    }
                     self.wasConnectedToRemote = false
                 }
 
@@ -144,7 +154,7 @@ public class TCPPassthroughV2 {
                     self.logger.info("disconnected from Local Connection")
                     return
                 }
-
+                
                 updateLocalToRemoteByteCounter(numOfBytes: bytesRead)
             } catch {
                 logger.error("Local socket read error: \(error)")
@@ -153,29 +163,36 @@ public class TCPPassthroughV2 {
 
             // Try to write data
             do {
-                for data in self.bufferedData {
-                    // Try to write data
+                // Try to write buffered data
+                for data in self.bufferedDataFromLocal {
+                    print("Send buffered data")
                     do {
-                        try sendDataToLocal(data: readData)
+                        //try sendDataToLocal(data: readData)
+                        try sendDataToRemote(data: data)
                     } catch {
                         self.logger.error("Remote socket write error: \(error)")
                         return
                     }
                 }
-                self.bufferedData = []
+
+                self.bufferedDataFromLocal = []
+                
+                // Send real data
                 try sendDataToRemote(data: readData)
             } catch {
                 self.logger.warning("Local socket write error: \(error)")
 
                 self.logger.info("Added data to buffer to be forwarded when remote connects")
-                self.bufferedData.append(readData)
+                self.bufferedDataFromLocal.append(readData)
 
                 return
             }
 
             // Notify that local connection is complete
             if !self.wasConnectedToLocal {
-                self.delegate?.didConnectToLocal()
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .didConnectToLocal, object: nil)
+                }
             }
             self.wasConnectedToLocal = true
         }
@@ -196,6 +213,7 @@ public class TCPPassthroughV2 {
                     return
                 }
 
+                self.latestRemoteReceiveTime = Date()
                 updateRemoteToLocalByteCounter(numOfBytes: bytesRead)
             } catch {
                 self.logger.error("Remote socket read error: \(error)")
@@ -212,7 +230,9 @@ public class TCPPassthroughV2 {
 
             // Notify that remote connection is complete
             if !self.wasConnectedToRemote {
-                self.delegate?.didConnectToRemote()
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .didConnectToRemote, object: nil)
+                }
             }
             self.wasConnectedToRemote = true
         }
@@ -245,7 +265,10 @@ public class TCPPassthroughV2 {
         } else {
             self.isRtoLTimerRunning = true
             self.dispatchQueue.asyncAfter(deadline: .now() + .seconds(1), execute: {
-                self.delegate?.bytesTransferredRtoL(numOfBytes: self.remoteToLocalByteCounter)
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .bytesTransferredRtoL, object: self.remoteToLocalByteCounter)
+                }
+                
                 self.isRtoLTimerRunning = false
             })
         }
@@ -257,7 +280,9 @@ public class TCPPassthroughV2 {
         } else {
             self.isLtoRTimerRunning = true
             self.dispatchQueue.asyncAfter(deadline: .now() + .seconds(1), execute: {
-                self.delegate?.bytesTransferredLtoR(numOfBytes: self.localToRemoteByteCounter)
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .bytesTransferredLtoR, object: self.localToRemoteByteCounter)
+                }
                 self.isLtoRTimerRunning = false
             })
         }
@@ -281,3 +306,14 @@ public class TCPPassthroughV2 {
 //        return String(utf16CodeUnits: chars, count: chars.count)
 //    }
 //}
+
+extension Notification.Name {
+    public static let didConnectToLocal = Notification.Name("didConnectToLocal")
+    public static let didDisconnectFromLocal = Notification.Name("didDisconnectFromLocal")
+    
+    public static let didConnectToRemote = Notification.Name("didConnectToRemote")
+    public static let didDisconnectFromRemote = Notification.Name("didDisconnectFromRemote")
+    
+    public static let bytesTransferredLtoR = Notification.Name("bytesTransferredLtoR")
+    public static let bytesTransferredRtoL = Notification.Name("bytesTransferredRtoL")
+}
